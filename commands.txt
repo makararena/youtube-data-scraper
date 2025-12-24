@@ -1,0 +1,23 @@
+# Quick Reference Commands
+
+# 1. Download channel videos metadata (auto-saves to data/<channel>/videos.json)
+python scrape.py videos @channelname
+python scrape.py videos @channelname --max-videos 10
+
+# 2. Download comments for single video (auto-saves to data/<video_id>/comments.jsonl)
+python scrape.py comments VIDEO_ID
+python scrape.py comments VIDEO_ID --limit 100
+
+# 3. Download channel + all comments (auto-saves to data/<channel>/)
+python scrape.py channel-comments @channelname
+python scrape.py channel-comments @channelname --max-videos 5 --per-video-limit 50
+
+# Custom output paths (optional)
+python scrape.py videos @channelname -o custom/path.json
+python scrape.py comments VIDEO_ID -o custom/path.jsonl
+python scrape.py channel-comments @channelname --out-dir custom/dir
+
+# All data exports go to data/ folder by default:
+# data/<channel>/videos.json
+# data/<channel>/comments/0001_<videoId>.jsonl
+# data/<video_id>/comments.jsonl
