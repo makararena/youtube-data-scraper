@@ -2,8 +2,8 @@
 
 ## Overview
 
-YouTube Comment Explorer — unified tool for scraping YouTube data without API:
-- Channel videos metadata (newest → oldest)
+YouTube Comment Explorer - unified tool for scraping YouTube data without API:
+- Channel videos metadata (newest -> oldest)
 - Video comments (with sorting and pagination)
 - Recursive channel + comments pipeline
 
@@ -11,100 +11,99 @@ YouTube Comment Explorer — unified tool for scraping YouTube data without API:
 
 ```
 youtube-comment-explorer/
-├── scrape.py                        # 🎯 Main CLI entry point
-├── data/                            # 📁 All exports (auto-created, gitignored)
-│   ├── .gitkeep                     # Keep folder in git
-│   ├── <channel-name>/
-│   │   ├── videos.json              # Channel videos metadata
-│   │   └── comments/                # Per-video comments
-│   │       ├── 0001_<videoId>.jsonl
-│   │       └── 0002_<videoId>.jsonl
-│   └── <video-id>/
-│       └── comments.jsonl           # Single video comments
-├── shared/                          # 🔧 Common utilities
-│   ├── __init__.py
-│   └── youtube.py                   # Core scraping logic
-├── youtube-channel-videos/          # 📺 Videos scraper module
-│   ├── __init__.py
-│   └── channel_videos.py
-├── youtube-comment-downloader/      # 💬 Comments scraper module
-│   ├── __init__.py
-│   ├── __main__.py
-│   └── downloader.py
-├── requirements.txt                 # Python dependencies
-├── LICENSE                          # MIT License
-├── README.md                        # User documentation
-├── STRUCTURE.md                     # This file
-└── commands.txt                     # Quick reference
-
+|-- src/
+|   `-- ytce/                        # Main python package
+|       |-- __init__.py
+|       |-- __main__.py              # python -m ytce
+|       |-- cli/                     # CLI interface
+|       |   `-- main.py
+|       |-- pipelines/               # High-level workflows
+|       |   |-- channel_videos.py
+|       |   |-- video_comments.py
+|       |   `-- channel_comments.py
+|       |-- youtube/                 # YouTube primitives
+|       |   |-- session.py
+|       |   |-- html.py
+|       |   |-- extractors.py
+|       |   |-- innertube.py
+|       |   |-- pagination.py
+|       |   |-- channel_videos.py
+|       |   `-- comments.py
+|       |-- storage/                 # output / fs / resume
+|       |   |-- paths.py
+|       |   |-- writers.py
+|       |   `-- resume.py
+|       |-- models/                  # typed structures
+|       |   |-- video.py
+|       |   `-- comment.py
+|       `-- utils/
+|           |-- logging.py
+|           |-- parsing.py
+|           `-- helpers.py
+|-- data/                            # All exports (auto-created, gitignored)
+|   `-- .gitkeep                     # Keep folder in git
+|-- docs/
+|   `-- commands.txt                 # Quick reference
+|-- scripts/                         # Dev/debug scripts
+|-- tests/
+|-- requirements.txt                 # Python dependencies
+|-- pyproject.toml
+|-- LICENSE
+|-- README.md
+`-- STRUCTURE.md
 ```
 
 ## Module Responsibilities
 
-### `scrape.py` (Main CLI)
+### `src/ytce/cli/main.py` (Main CLI)
 - Unified command-line interface
 - Three subcommands: `videos`, `comments`, `channel-comments`
 - Auto-generates output paths in `data/` folder
-- Orchestrates calls to scrapers
+- Orchestrates calls to pipelines
 
-### `shared/youtube.py` (Core Utilities)
-- HTTP session management with consent bypass
-- HTML fetching and parsing
-- `ytcfg` and `ytInitialData` extraction
-- InnerTube API requests
-- View count parsing
-- Continuation token handling
+### `src/ytce/pipelines/`
+- `channel_videos.py`: exports videos metadata JSON
+- `video_comments.py`: exports comments JSONL for a single video
+- `channel_comments.py`: exports channel videos + per-video comments JSONL
 
-### `youtube-channel-videos/channel_videos.py`
-- `YoutubeChannelVideosScraper` class
-- Fetches all videos from a channel (newest → oldest)
-- Handles pagination via continuation tokens
-- Preserves video order from YouTube's UI
-- Outputs JSON with metadata
+### `src/ytce/youtube/`
+- `session.py`: session headers and consent bypass
+- `html.py`: `fetch_html()`
+- `extractors.py`: `extract_ytcfg()`, `extract_ytinitialdata()`
+- `innertube.py`: InnerTube API requests
+- `pagination.py`: continuation helpers, `search_dict()`
+- `channel_videos.py`: `YoutubeChannelVideosScraper`
+- `comments.py`: `YoutubeCommentDownloader`
 
-### `youtube-comment-downloader/downloader.py`
-- `YoutubeCommentDownloader` class
-- Downloads comments for a video
-- Supports sorting (recent/popular)
-- Handles nested replies
-- Outputs JSONL (line-delimited JSON)
+### `src/ytce/storage/`
+- `paths.py`: default output paths
+- `writers.py`: JSON and JSONL writers
+- `resume.py`: skip/resume behavior
 
 ## Data Flow
 
 ### 1. Videos Command
 ```
-User → scrape.py videos @channel
-  ↓
-YoutubeChannelVideosScraper
-  ↓
-shared.youtube (fetch_html, extract_ytcfg, inertube_ajax_request)
-  ↓
-data/<channel>/videos.json
+User -> ytce videos @channel
+  -> pipelines.channel_videos
+  -> youtube.channel_videos + youtube.*
+  -> data/<channel>/videos.json
 ```
 
 ### 2. Comments Command
 ```
-User → scrape.py comments VIDEO_ID
-  ↓
-YoutubeCommentDownloader
-  ↓
-shared.youtube (fetch_html, extract_ytcfg, inertube_ajax_request)
-  ↓
-data/<video_id>/comments.jsonl
+User -> ytce comments VIDEO_ID
+  -> pipelines.video_comments
+  -> youtube.comments + youtube.*
+  -> data/<video_id>/comments.jsonl
 ```
 
 ### 3. Channel-Comments Command
 ```
-User → scrape.py channel-comments @channel
-  ↓
-YoutubeChannelVideosScraper (get all videos)
-  ↓
-data/<channel>/videos.json
-  ↓
-For each video:
-  YoutubeCommentDownloader
-    ↓
-  data/<channel>/comments/NNNN_<videoId>.jsonl
+User -> ytce channel-comments @channel
+  -> pipelines.channel_comments
+  -> data/<channel>/videos.json
+  -> data/<channel>/comments/NNNN_<videoId>.jsonl
 ```
 
 ## Key Features
@@ -160,8 +159,8 @@ Each line is a JSON object:
 
 ## Dependencies
 
-- `requests` — HTTP client for web scraping
-- Python 3.7+ — Type hints, f-strings
+- `requests` - HTTP client for web scraping
+- Python 3.7+ - type hints, f-strings
 
 ## Git Configuration
 
@@ -173,23 +172,23 @@ Each line is a JSON object:
 ### Tracked Files
 - Source code (`.py`)
 - Documentation (`.md`, `.txt`)
-- Config files (`requirements.txt`, `LICENSE`)
+- Config files (`requirements.txt`, `pyproject.toml`, `LICENSE`)
 - `data/.gitkeep` (keeps folder in repo)
 
 ## Development Notes
 
 ### Adding New Features
-1. Add shared utilities to `shared/youtube.py`
-2. Extend scrapers in respective modules
-3. Update CLI in `scrape.py`
+1. Add shared utilities to `src/ytce/youtube/`
+2. Extend pipelines in `src/ytce/pipelines/`
+3. Update CLI in `src/ytce/cli/main.py`
 4. Update README.md
 
 ### Testing
 ```bash
 # Quick test
-python scrape.py videos @test --max-videos 1
-python scrape.py comments VIDEO_ID --limit 1
-python scrape.py channel-comments @test --max-videos 1 --per-video-limit 1
+PYTHONPATH=src python -m ytce videos @test --max-videos 1
+PYTHONPATH=src python -m ytce comments VIDEO_ID --limit 1
+PYTHONPATH=src python -m ytce channel-comments @test --max-videos 1 --per-video-limit 1
 
 # Check data folder
 find data -type f
@@ -198,21 +197,3 @@ find data -type f
 ### Code Style
 - Type hints for function signatures
 - Docstrings for public methods
-- Descriptive variable names
-- Early returns for error handling
-- Guard clauses for validation
-
-## Future Enhancements
-
-- [ ] Parallel comment downloads
-- [ ] Rate limiting configuration
-- [ ] Export to CSV/Parquet
-- [ ] Video metadata enrichment (likes, dislikes)
-- [ ] Playlist support
-- [ ] Search results scraping
-- [ ] Live chat archiving
-- [ ] Transcript extraction
-
----
-
-Last updated: 2025-12-24

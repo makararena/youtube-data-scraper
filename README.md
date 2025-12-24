@@ -7,7 +7,7 @@ Unified tool for scraping YouTube channel videos metadata and comments without u
 - **Channel Videos Scraper**: Download all videos metadata from a YouTube channel (newest to oldest)
 - **Comment Downloader**: Download all comments for any video (with sorting options)
 - **Recursive Pipeline**: Download all videos from a channel + comments for each video automatically
-- **Shared Core**: Optimized common code for both scrapers (session management, consent handling, InnerTube API)
+- **Shared Core**: Common YouTube scraping utilities (session, consent, InnerTube API)
 
 ## Installation
 
@@ -28,22 +28,28 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+4. (Optional) Install the package for `ytce` CLI:
+```bash
+pip install -e .
+```
+
 ## Usage
 
-The main interface is through `scrape.py` which provides three commands.
+The main interface is `python -m ytce` (or `ytce` if installed). If you are not installing the package,
+run with `PYTHONPATH=src` so the module can be found.
 
 **All data is automatically saved to `data/<export-name>/` folder structure.**
 
 ### 1. Download Channel Videos Metadata
 
-Download all videos from a channel as JSON (ordered newest → oldest):
+Download all videos from a channel as JSON (ordered newest -> oldest):
 
 ```bash
 # Auto-saves to data/<channel>/videos.json
-python scrape.py videos @channelname
+PYTHONPATH=src python -m ytce videos @channelname
 
 # Or specify custom output path
-python scrape.py videos @channelname -o custom/path/videos.json
+ytce videos @channelname -o custom/path/videos.json
 ```
 
 Options:
@@ -78,10 +84,10 @@ Download all comments from one video as JSONL (line-delimited JSON):
 
 ```bash
 # Auto-saves to data/<video_id>/comments.jsonl
-python scrape.py comments VIDEO_ID
+PYTHONPATH=src python -m ytce comments VIDEO_ID
 
 # Or specify custom output path
-python scrape.py comments VIDEO_ID -o custom/path/comments.jsonl
+ytce comments VIDEO_ID -o custom/path/comments.jsonl
 ```
 
 Options:
@@ -101,16 +107,16 @@ Download all videos from a channel and comments for each video:
 
 ```bash
 # Auto-saves to data/<channel>/
-python scrape.py channel-comments @channelname
+PYTHONPATH=src python -m ytce channel-comments @channelname
 
 # Or specify custom output directory
-python scrape.py channel-comments @channelname --out-dir custom/output
+ytce channel-comments @channelname --out-dir custom/output
 ```
 
 This creates:
-- `data/<channel>/videos.json` — all videos metadata
-- `data/<channel>/comments/0001_<videoId>.jsonl` — comments for video 1
-- `data/<channel>/comments/0002_<videoId>.jsonl` — comments for video 2
+- `data/<channel>/videos.json` - all videos metadata
+- `data/<channel>/comments/0001_<videoId>.jsonl` - comments for video 1
+- `data/<channel>/comments/0002_<videoId>.jsonl` - comments for video 2
 - etc.
 
 Options:
@@ -122,32 +128,32 @@ Options:
 - `--language LANG`: Language for YouTube generated text
 - `--debug`: Enable debug output
 
-The scraper will **resume automatically** if interrupted — it skips videos that already have comment files.
+The scraper will **resume automatically** if interrupted - it skips videos that already have comment files.
 
 ## Examples
 
 ### Example 1: Quick test with limited videos
 ```bash
 # Auto-saves to data/realmadrid/videos.json
-python scrape.py videos @realmadrid --max-videos 10
+PYTHONPATH=src python -m ytce videos @realmadrid --max-videos 10
 ```
 
 ### Example 2: Download comments for a specific video
 ```bash
 # Auto-saves to data/dQw4w9WgXcQ/comments.jsonl
-python scrape.py comments dQw4w9WgXcQ --limit 100
+PYTHONPATH=src python -m ytce comments dQw4w9WgXcQ --limit 100
 ```
 
 ### Example 3: Full channel backup
 ```bash
 # Auto-saves to data/skryp/
-python scrape.py channel-comments @skryp
+PYTHONPATH=src python -m ytce channel-comments @skryp
 ```
 
 ### Example 4: Channel with limits (for testing)
 ```bash
 # Auto-saves to data/channelname/
-python scrape.py channel-comments @channelname \
+PYTHONPATH=src python -m ytce channel-comments @channelname \
     --max-videos 5 \
     --per-video-limit 50
 ```
@@ -156,49 +162,63 @@ python scrape.py channel-comments @channelname \
 
 ```
 youtube-comment-explorer/
-├── scrape.py                        # Main CLI interface
-├── data/                            # All exports go here (auto-created)
-│   ├── <channel-name>/
-│   │   ├── videos.json              # Channel videos metadata
-│   │   └── comments/                # Per-video comments
-│   │       ├── 0001_<videoId>.jsonl
-│   │       └── 0002_<videoId>.jsonl
-│   └── <video-id>/
-│       └── comments.jsonl           # Single video comments
-├── shared/                          # Shared utilities for both scrapers
-│   ├── __init__.py
-│   └── youtube.py                   # Core YouTube scraping utilities
-├── youtube-channel-videos/          # Channel videos scraper module
-│   ├── __init__.py
-│   └── channel_videos.py
-├── youtube-comment-downloader/      # Comment downloader module
-│   ├── __init__.py
-│   ├── __main__.py
-│   └── downloader.py
-├── requirements.txt                 # Python dependencies (requests)
-├── LICENSE                          # MIT License
-└── README.md                        # This file
+|-- src/
+|   `-- ytce/                        # Main python package
+|       |-- __init__.py
+|       |-- __main__.py              # python -m ytce
+|       |-- cli/                     # CLI interface
+|       |   `-- main.py              # ytce videos / comments / channel-comments
+|       |-- pipelines/               # High-level workflows
+|       |   |-- channel_videos.py
+|       |   |-- video_comments.py
+|       |   `-- channel_comments.py
+|       |-- youtube/                 # YouTube primitives
+|       |   |-- session.py           # headers, consent, cookies
+|       |   |-- html.py              # fetch_html
+|       |   |-- extractors.py        # ytcfg, ytInitialData
+|       |   |-- innertube.py         # ajax requests
+|       |   |-- pagination.py
+|       |   |-- channel_videos.py
+|       |   `-- comments.py
+|       |-- storage/                 # output / fs / resume
+|       |   |-- paths.py
+|       |   |-- writers.py           # json / jsonl writers
+|       |   `-- resume.py
+|       |-- models/                  # typed structures
+|       |   |-- video.py
+|       |   `-- comment.py
+|       `-- utils/
+|           |-- logging.py
+|           |-- parsing.py
+|           `-- helpers.py
+|-- data/                            # outputs (gitignored)
+|   `-- .gitkeep
+|-- docs/
+|   `-- commands.txt
+|-- scripts/                         # dev / debug scripts
+|-- tests/
+|-- README.md
+|-- STRUCTURE.md
+|-- requirements.txt
+|-- pyproject.toml
+|-- .gitignore
+`-- LICENSE
 ```
 
 ## Technical Details
 
-### Shared Module (`shared/youtube.py`)
+### YouTube Core (`src/ytce/youtube/`)
 
-Common utilities used by both scrapers:
-- **Session Management**: HTTP session with proper headers and consent bypass
-- **HTML Fetching**: `fetch_html()` with consent redirect handling
-- **Data Extraction**: 
-  - `extract_ytcfg()` — extracts YouTube config (API keys, context)
-  - `extract_ytinitialdata()` — extracts initial page data
-- **InnerTube API**: `inertube_ajax_request()` for pagination
-- **Helpers**: 
-  - `search_dict()` — recursively search nested dicts (⚠️ doesn't preserve list order)
-  - `parse_view_count()` — parse "123K views" → 123000
-  - `pick_longest_continuation()` — find video pagination token
+Common utilities used by both pipelines:
+- **Session Management**: `session.py` (headers, consent bypass)
+- **HTML Fetching**: `html.py` (`fetch_html()`)
+- **Data Extraction**: `extractors.py` (`extract_ytcfg()`, `extract_ytinitialdata()`)
+- **InnerTube API**: `innertube.py` (`inertube_ajax_request()`)
+- **Helpers**: `pagination.py` (`search_dict()`, `pick_longest_continuation()`)
 
 ### Order Preservation
 
-**Important**: Videos are returned in YouTube's default order (newest → oldest).
+**Important**: Videos are returned in YouTube's default order (newest -> oldest).
 - `order` field: 1 = newest video, N = oldest video
 - Order is preserved throughout pagination
 - The scraper uses explicit list traversal (not `search_dict`) to maintain order
@@ -241,7 +261,7 @@ See individual module directories for original licenses.
 
 ## Notes
 
-- **No API key required** — uses YouTube's web interface
+- **No API key required** - uses YouTube's web interface
 - **Rate limiting**: Built-in delays between requests to be respectful to YouTube's servers
 - **Resume capability**: The recursive channel-comments command can resume interrupted downloads
 - **No authentication**: Works without YouTube account login
