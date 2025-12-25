@@ -25,6 +25,7 @@ build/
 output/
 out/
 backup/
+questions.yaml
 
 # Data exports (keep folder structure, ignore contents)
 data/*

@@ -1,0 +1,213 @@
+AI ANALYSIS FEATURE — IMPLEMENTATION PLAN
+=========================================
+
+Goal
+----
+Build a standalone AI analysis engine that:
+- accepts text comments as input
+- allows users to define WHAT they want to know via tasks/questions
+- executes analysis using an LLM
+- produces structured, CSV-ready results
+- is independent from YouTube, CLI, or storage layer
+
+The AI feature must be reusable for any text source (YouTube, CSV, future platforms).
+
+
+High-level Concept
+------------------
+User defines:
+- comments (text + optional metadata)
+- tasks (questions with explicit task types)
+
+System:
+- interprets tasks
+- runs LLM-based analysis in batches
+- returns structured results
+
+No hardcoded sentiment / topics.
+All logic is driven by user-defined TaskConfig.
+
+
+Architecture Overview
+---------------------
+ytce/ai is a standalone bounded context.
+
+ai/
+├── domain/     # pure data models (no logic)
+├── input/      # parsing + validation (CSV, YAML)
+├── tasks/      # task execution logic (per TaskType)
+├── prompts/    # prompt templates + compiler
+├── models/     # LLM adapters (OpenAI, etc.)
+├── runner/     # orchestration, batching, retries
+└── output/     # result formatting (CSV, etc.)
+
+
+Domain Layer (DONE / IN PROGRESS)
+--------------------------------
+Purpose:
+- define stable contracts
+- avoid coupling to execution or infra
+
+Files:
+- domain/task.py
+    - TaskType enum (binary, multi_class, multi_label, scoring)
+    - TaskConfig (immutable, declarative)
+
+- domain/result.py
+    - TaskResult (value + optional confidence)
+    - EnrichedComment (comment + task results)
+    - AnalysisResult (collection-level output)
+
+Rules:
+- domain objects are immutable (frozen=True)
+- no validation logic
+- no execution logic
+- no model-specific details
+
+
+Task Model
+----------
+Each task is defined by TaskConfig:
+
+- id: stable identifier (CSV column key)
+- type: TaskType
+- question: semantic intent (user-defined)
+
+Conditional fields:
+- labels: allowed output labels (classification tasks)
+- max_labels: constraint for multi_label
+- scale: numeric range for scoring tasks (range, not output)
+
+TaskConfig describes WHAT the task means, not HOW it runs.
+
+
+Task Types (MVP)
+----------------
+Supported task types:
+- binary_classification
+- multi_class
+- multi_label
+- scoring
+
+Explicitly excluded for MVP:
+- free-form Q&A
+- arbitrary JSON extraction
+- reasoning / chain-of-thought
+- topic modeling
+
+
+Input Layer (NEXT)
+------------------
+Responsibilities:
+- load user input
+- validate correctness
+- convert to domain objects
+
+Planned files:
+- input/comments.py
+    - load comments from CSV
+    - normalize into Comment domain objects
+
+- input/questions.py
+    - parse questions.yaml
+    - map to TaskConfig
+    - fail-fast on invalid combinations
+
+- input/validators.py
+    - schema validation
+    - task-specific rules (labels vs scale, etc.)
+
+Input layer produces ONLY domain objects.
+
+
+Execution Layer (PLANNED)
+-------------------------
+tasks/
+- one executor per TaskType
+- receives:
+    - TaskConfig
+    - list of Comment
+- returns:
+    - Dict[comment_id, TaskResult]
+
+No file I/O inside tasks.
+
+
+Prompt Layer (PLANNED)
+---------------------
+prompts/
+- prompt templates per TaskType
+- prompt compiler:
+    - TaskConfig -> final prompt
+    - enforces strict JSON output
+
+Prompts are versioned and deterministic.
+
+
+Model Layer (PLANNED)
+--------------------
+models/
+- adapters for LLM providers
+- OpenAI-compatible interface
+- user-provided API key
+- no domain logic
+
+
+Runner Layer (PLANNED)
+---------------------
+runner/
+- run_analysis() orchestration
+- batching
+- retries
+- error handling
+- merges results into EnrichedComment / AnalysisResult
+
+Runner depends on:
+- domain
+- input
+- tasks
+- prompts
+- models
+
+
+Output Layer (PLANNED)
+---------------------
+output/
+- write enriched results to CSV
+- flatten TaskResult into columns
+- preserve original comment metadata
+
+CSV is the primary output format.
+
+
+Implementation Order
+--------------------
+1. Finish domain layer (task.py, result.py, comment.py)
+2. Implement questions.yaml -> TaskConfig parser + validator
+3. Implement Comment loader
+4. Implement Task executors (classification, scoring)
+5. Implement prompt compiler
+6. Implement model adapter
+7. Implement runner
+8. Implement CSV output
+9. Integrate with CLI
+
+
+Non-Goals (Important)
+---------------------
+- no real-time processing
+- no UI
+- no dashboards
+- no auto-generated insights
+- no training / fine-tuning
+
+This is a framework, not a black-box AI tool.
+
+
+Design Principles
+-----------------
+- strict separation of concerns
+- domain objects are immutable
+- user defines WHAT, system decides HOW
+- batch-first, cost-aware execution
+- CSV / BI-friendly outputs

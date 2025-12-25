@@ -8,7 +8,7 @@ import sys
 from typing import Optional
 
 from ytce.__version__ import __version__
-from ytce.config import init_project, load_config
+from ytce.config import load_config
 from ytce.errors import EXIT_SUCCESS, handle_error
 from ytce.pipelines.batch import run_batch
 from ytce.pipelines.channel_videos import run as run_channel_videos
@@ -18,13 +18,100 @@ from ytce.storage.paths import channel_output_dir, channel_videos_path, channel_
 from ytce.utils.progress import print_error, print_success
 
 
+# Template for questions.yaml
+QUESTIONS_YAML_TEMPLATE = """version: 1
+
+# Input section: where to load comments from
+input:
+  path: "./comments.csv"
+  format: csv
+  id_field: id
+  text_field: text
+
+# Optional: Custom prompt providing background story/context about the channel
+# This context will be included when analyzing comments to help the AI understand
+# the channel's focus, audience, and content style
+custom_prompt: ""
+
+# Tasks section: what analysis to run on each comment
+tasks:
+  # Example 1: Multi-class classification
+  - id: sentiment
+    type: multi_class
+    question: "What is the sentiment of this comment?"
+    labels: ["positive", "neutral", "negative"]
+
+  # Example 2: Binary classification
+  - id: spam
+    type: binary_classification
+    question: "Is this comment spam or self-promotion?"
+    labels: ["yes", "no"]
+
+  # Example 3: Multi-label classification
+  - id: topics
+    type: multi_label
+    question: "What topics are mentioned in this comment?"
+    labels:
+      - price
+      - quality
+      - delivery
+      - support
+      - usability
+    max_labels: 2
+
+  # Example 4: Scoring task
+  - id: toxicity
+    type: scoring
+    question: "How toxic or aggressive is this comment?"
+    scale: [0.0, 1.0]
+"""
+
+
+def init_questions_yaml() -> int:
+    """
+    Generate an example questions.yaml file in the current working directory.
+    
+    Returns:
+        Exit code (0 for success, non-zero for error)
+    """
+    target_path = os.path.join(os.getcwd(), "questions.yaml")
+    
+    # Check if file already exists
+    if os.path.exists(target_path):
+        print_error("questions.yaml already exists in current directory")
+        print_error(f"Location: {target_path}")
+        print_error("Remove or rename the existing file before running ytce init")
+        from ytce.errors import EXIT_USER_ERROR
+        return EXIT_USER_ERROR
+    
+    # Write the template
+    try:
+        with open(target_path, "w", encoding="utf-8") as f:
+            f.write(QUESTIONS_YAML_TEMPLATE.lstrip())
+        
+        print_success(f"Generated: {target_path}")
+        print()
+        print("Next steps:")
+        print("  1. Edit questions.yaml to define your analysis tasks")
+        print("  2. Prepare your comments data (CSV, JSON, or Parquet)")
+        print("  3. Update the 'input.path' field to point to your data")
+        print("  4. Run: ytce analyze questions.yaml")
+        
+        return EXIT_SUCCESS
+        
+    except Exception as e:
+        print_error(f"Failed to create questions.yaml: {e}")
+        from ytce.errors import EXIT_INTERNAL_ERROR
+        return EXIT_INTERNAL_ERROR
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ytce",
         description="YouTube Comment Explorer - Download videos and comments without API",
         epilog="""
 Examples:
-  ytce init                          # Initialize project with config
+  ytce init                          # Generate questions.yaml for AI analysis
   ytce channel @realmadrid           # Download channel videos + comments
   ytce channel @skryp --limit 5      # Download first 5 videos only
   ytce comments dQw4w9WgXcQ          # Download comments for one video
@@ -45,16 +132,22 @@ For more info: https://github.com/makararena/youtube-data-scraper
     # ytce init
     p_init = sub.add_parser(
         "init",
-        help="Initialize a new ytce project",
-        description="Initialize a new ytce project with config file and output directory.",
+        help="Generate example questions.yaml for AI analysis",
+        description="Generate an example questions.yaml file with input configuration and sample analysis tasks.",
         epilog="""
 Examples:
-  ytce init                    # Create data/ and ytce.yaml
-  ytce init --output-dir out   # Use 'out' as output directory
+  ytce init                    # Create questions.yaml in current directory
+
+The generated file includes:
+  - Input section: where to load comments from
+  - Tasks section: example tasks for all supported types
+    • multi_class: sentiment analysis
+    • binary_classification: spam detection
+    • multi_label: topic classification
+    • scoring: toxicity scoring
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p_init.add_argument("--output-dir", default=None, help="Custom output directory (default: data)")
 
     # ytce channel
     p_channel = sub.add_parser(
@@ -210,8 +303,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
         # ytce init
         if args.cmd == "init":
-            init_project(args.output_dir)
-            return EXIT_SUCCESS
+            return init_questions_yaml()
 
         # ytce open
         if args.cmd == "open":

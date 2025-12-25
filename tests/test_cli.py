@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from ytce.cli.main import build_parser
+import os
+import tempfile
+
+from ytce.cli.main import build_parser, init_questions_yaml
+from ytce.errors import EXIT_SUCCESS, EXIT_USER_ERROR
 
 
 def test_parser_init_command():
@@ -10,6 +14,58 @@ def test_parser_init_command():
     parser = build_parser()
     args = parser.parse_args(["init"])
     assert args.cmd == "init"
+
+
+def test_init_questions_yaml_creates_file():
+    """Test that init_questions_yaml creates questions.yaml."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+            exit_code = init_questions_yaml()
+            
+            assert exit_code == EXIT_SUCCESS
+            assert os.path.exists("questions.yaml")
+            
+            # Verify content structure
+            with open("questions.yaml", "r") as f:
+                content = f.read()
+                assert "version: 1" in content
+                assert "input:" in content
+                assert "tasks:" in content
+                assert "sentiment" in content
+                assert "spam" in content
+                assert "topics" in content
+                assert "toxicity" in content
+                assert "multi_class" in content
+                assert "binary_classification" in content
+                assert "multi_label" in content
+                assert "scoring" in content
+        finally:
+            os.chdir(original_cwd)
+
+
+def test_init_questions_yaml_rejects_existing_file():
+    """Test that init_questions_yaml refuses to overwrite existing file."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+            
+            # Create an existing file
+            with open("questions.yaml", "w") as f:
+                f.write("existing content")
+            
+            exit_code = init_questions_yaml()
+            
+            assert exit_code == EXIT_USER_ERROR
+            
+            # Verify original content is preserved
+            with open("questions.yaml", "r") as f:
+                content = f.read()
+                assert content == "existing content"
+        finally:
+            os.chdir(original_cwd)
 
 
 def test_parser_channel_command():
