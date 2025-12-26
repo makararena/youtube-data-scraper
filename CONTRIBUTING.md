@@ -69,11 +69,13 @@ pytest tests/
 # 2. Test CLI commands
 ytce init
 ytce channel @test --limit 1 --dry-run
+ytce analyze questions.yaml --dry-run
 ytce --version
 
 # 3. Check help messages
 ytce --help
 ytce channel --help
+ytce analyze --help
 ```
 
 ## Code Style
@@ -116,9 +118,19 @@ youtube-data-scraper/
 │   ├── youtube/          # YouTube scraping core
 │   ├── storage/          # File I/O
 │   ├── models/           # Data structures
+│   ├── ai/               # AI analysis engine
+│   │   ├── domain/       # Domain models
+│   │   ├── input/        # Input parsers
+│   │   ├── models/       # LLM adapters
+│   │   ├── promts/       # Prompt compilation
+│   │   ├── runner/       # Orchestration
+│   │   ├── tasks/        # Task executors
+│   │   └── output/       # CSV export
 │   ├── utils/            # Utilities
 │   ├── config.py         # Configuration management
 │   └── errors.py         # Error handling
+├── examples/             # Example question files
+│   └── questions/        # AI analysis templates
 ├── tests/                # Test suite
 ├── docs/                 # Documentation
 └── README.md             # User documentation
@@ -164,6 +176,32 @@ Add new scrapers to `src/ytce/youtube/`:
 
 3. Add tests for parsing logic
 
+### Adding AI Analysis Features
+
+The AI analysis engine (`src/ytce/ai/`) is modular and extensible:
+
+**Adding a new task type:**
+
+1. Add task type to `domain/task.py` (`TaskType` enum)
+2. Create executor in `tasks/` (e.g., `tasks/new_task.py`)
+3. Add prompt template in `promts/templates.py`
+4. Update validators in `input/validators.py`
+5. Add example to `examples/questions/`
+
+**Adding a new model adapter:**
+
+1. Implement `ModelAdapter` interface from `models/base.py`
+2. Add to `models/__init__.py`
+3. Update `runner/analysis.py` to support new adapter
+
+**Adding input format support:**
+
+1. Extend `input/comments.py` to support new format
+2. Update `InputConfig` in `input/config.py` if needed
+3. Add tests for new format
+
+See `src/ytce/ai/README.md` and `src/ytce/ai/ARCHITECTURE.md` for detailed architecture documentation.
+
 ## Testing Guidelines
 
 ### What to Test
@@ -172,7 +210,9 @@ Add new scrapers to `src/ytce/youtube/`:
 - ✅ Path generation
 - ✅ Error handling
 - ✅ Data format output
+- ✅ AI analysis pipeline (use `--dry-run` mode)
 - ❌ Actual YouTube scraping (too fragile)
+- ❌ Real LLM API calls (use mocks or `--dry-run`)
 
 ### Test Structure
 
