@@ -17,6 +17,7 @@ class TaskType(str, Enum):
     MULTI_LABEL = "multi_label"
     SCORING = "scoring"
     TRANSLATION = "translation"
+    LANGUAGE_DETECTION = "language_detection"
 
 
 @dataclass(frozen=True)

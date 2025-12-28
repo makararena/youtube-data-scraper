@@ -1,0 +1,18 @@
+version: 1
+
+input:
+  path: "./data/VIDEO_ID/comments.jsonl"
+  format: jsonl
+  id_field: cid
+  text_field: text
+
+custom_prompt: |
+  This video has comments from an international audience.
+  We need to detect the language of each comment to understand
+  the geographic distribution of viewers and plan localization efforts.
+
+tasks:
+  - id: language
+    type: language_detection
+    question: "What is the primary language of this comment? Return the ISO 639-1 or ISO 639-2 language code (e.g., 'en' for English, 'ru' for Russian, 'es' for Spanish)."
+

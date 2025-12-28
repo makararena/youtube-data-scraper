@@ -23,6 +23,18 @@ Translate comments to multiple languages. Useful for:
 - Preserves technical terms and product names
 - Maintains original tone and meaning
 
+### Language Detection (`language-detection.yaml`)
+Detect the primary language of each comment using ISO 639 language codes. Useful for:
+- Understanding geographic distribution of viewers
+- Planning localization efforts
+- Filtering comments by language
+- Analyzing international audience composition
+
+**Features:**
+- Returns ISO 639-1 or ISO 639-2 language codes (e.g., "en", "ru", "es")
+- Includes confidence scores for language detection
+- Handles mixed-language content gracefully
+
 ### Product Feedback (`product-feedback.yaml`)
 Comprehensive product feedback analysis combining:
 - Translation to Russian
@@ -85,6 +97,32 @@ Full-featured analysis combining multiple task types:
    ```
 
 ## Task Types Reference
+
+### Language Detection (`language_detection`)
+Detect the primary language of each comment.
+
+**Required fields:**
+- None (language detection doesn't require additional configuration)
+
+**Example:**
+```yaml
+- id: language
+  type: language_detection
+  question: "What is the primary language of this comment?"
+```
+
+**Output:** ISO 639-1 or ISO 639-2 language code string in `{task_id}_value` column (e.g., "en", "ru", "es", "fr")
+
+**Common ISO codes:**
+- `en` = English
+- `ru` = Russian
+- `es` = Spanish
+- `fr` = French
+- `de` = German
+- `zh` = Chinese
+- `ja` = Japanese
+- `ko` = Korean
+- `und` = Undetermined (for unclear/mixed content)
 
 ### Translation (`translation`)
 Translate comments to a target language.

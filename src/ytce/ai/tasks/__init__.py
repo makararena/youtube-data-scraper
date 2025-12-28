@@ -21,6 +21,7 @@ from ytce.ai.tasks.multi_class import execute_task as execute_multi_class
 from ytce.ai.tasks.multi_label import execute_task as execute_multi_label
 from ytce.ai.tasks.scoring import execute_task as execute_scoring
 from ytce.ai.tasks.translation import execute_task as execute_translation
+from ytce.ai.tasks.language_detection import execute_task as execute_language_detection
 
 
 def execute_task(
@@ -82,6 +83,8 @@ def execute_task(
         return execute_scoring(task, comments, model, run_config, custom_prompt)
     elif task.type == TaskType.TRANSLATION:
         return execute_translation(task, comments, model, run_config, custom_prompt)
+    elif task.type == TaskType.LANGUAGE_DETECTION:
+        return execute_language_detection(task, comments, model, run_config, custom_prompt)
     else:
         raise ValueError(f"Unsupported task type: {task.type}")
 

@@ -35,6 +35,8 @@ def get_task_instruction(task: TaskConfig) -> str:
         return _get_scoring_instruction(task)
     elif task.type == TaskType.TRANSLATION:
         return _get_translation_instruction(task)
+    elif task.type == TaskType.LANGUAGE_DETECTION:
+        return _get_language_detection_instruction(task)
     else:
         raise ValueError(f"Unknown task type: {task.type}")
 
@@ -123,6 +125,22 @@ For each comment:
 - Do not add explanations or commentary; output ONLY the translation text.
 - If the comment is already in "{target_language}", return it unchanged.
 - If the comment contains multiple languages, translate all content into "{target_language}" (keep names/handles as-is).{extra}"""
+
+
+def _get_language_detection_instruction(task: TaskConfig) -> str:
+    """Get instruction for language detection tasks."""
+    return f"""You are analyzing comments to detect the primary language of each comment.
+
+Question: {task.question}
+
+For each comment, identify the primary language and return its ISO 639-1 or ISO 639-2 language code (e.g., "en" for English, "ru" for Russian, "es" for Spanish, "fr" for French, "de" for German, "zh" for Chinese, "ja" for Japanese, "ko" for Korean, etc.).
+
+Important:
+- Use standard ISO 639 language codes (2-letter codes preferred, 3-letter codes acceptable)
+- If a comment contains multiple languages, identify the primary/dominant language
+- If a comment is mostly emojis or symbols without clear language, use "und" (undetermined) or "mul" (multiple languages)
+- Return the language code in lowercase (e.g., "en", not "EN")
+- Be confident in your detection - use high confidence scores (0.8-1.0) when the language is clear"""
 
 
 def build_base_prompt(

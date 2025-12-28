@@ -435,6 +435,11 @@ tasks:
    - Assign numeric scores within a range
    - Example: toxicity score (0.0 to 1.0)
 
+6. **Language Detection** (`language_detection`)
+   - Detect the primary language of each comment
+   - Returns ISO 639-1 or ISO 639-2 language codes (e.g., "en", "ru", "es")
+   - Example: identify which comments are in different languages
+
 ### Output Structure
 
 Results are automatically organized by video ID:
@@ -456,6 +461,7 @@ Each task creates two CSV columns:
 See `examples/questions/` for ready-to-use templates:
 
 - **`basic-sentiment.yaml`** - Simple sentiment analysis
+- **`language-detection.yaml`** - Detect comment languages
 - **`translation-multilanguage.yaml`** - Translate to multiple languages
 - **`product-feedback.yaml`** - Comprehensive product feedback analysis
 - **`content-moderation.yaml`** - Spam and toxicity detection

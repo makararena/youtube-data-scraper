@@ -44,6 +44,8 @@ def format_json_schema(task: TaskConfig) -> str:
         return _format_scoring_schema(task)
     elif task.type == TaskType.TRANSLATION:
         return _format_translation_schema(task)
+    elif task.type == TaskType.LANGUAGE_DETECTION:
+        return _format_language_detection_schema(task)
     else:
         raise ValueError(f"Unknown task type: {task.type}")
 
@@ -144,6 +146,38 @@ Example:
   {{"comment_id": "comment_1", "value": "Пример перевода.", "confidence": 0.93}},
   {{"comment_id": "comment_2", "value": "Ещё один пример.", "confidence": 0.88}}
 ]"""
+
+
+def _format_language_detection_schema(task: TaskConfig) -> str:
+    """Format JSON schema for language detection tasks."""
+    return """The output must be a JSON array where each element is an object with:
+- "comment_id": string (the ID of the comment)
+- "value": string (ISO 639-1 or ISO 639-2 language code, e.g., "en", "ru", "es", "fr", "de", "zh", "ja", "ko")
+- "confidence": number (optional, between 0.0 and 1.0, indicating confidence in language detection)
+
+Example:
+[
+  {"comment_id": "comment_1", "value": "en", "confidence": 0.95},
+  {"comment_id": "comment_2", "value": "ru", "confidence": 0.92},
+  {"comment_id": "comment_3", "value": "es", "confidence": 0.88},
+  {"comment_id": "comment_4", "value": "und", "confidence": 0.65}
+]
+
+Common ISO 639-1 codes:
+- "en" = English
+- "ru" = Russian
+- "es" = Spanish
+- "fr" = French
+- "de" = German
+- "zh" = Chinese
+- "ja" = Japanese
+- "ko" = Korean
+- "pt" = Portuguese
+- "it" = Italian
+- "ar" = Arabic
+- "hi" = Hindi
+- "und" = Undetermined (for unclear/mixed content)
+- "mul" = Multiple languages"""
 
 
 def truncate_comment_text(text: str, max_length: int) -> tuple[str, bool]:

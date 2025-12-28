@@ -267,6 +267,24 @@ def validate_result_item(
             raise InvalidResponseError(
                 "Translation value cannot be empty"
             )
+    
+    elif task.type.value == "language_detection":
+        if not isinstance(value, str):
+            raise InvalidResponseError(
+                f"Language detection expects str (ISO code), got {type(value).__name__}"
+            )
+        if not value.strip():
+            raise InvalidResponseError(
+                "Language detection value (ISO code) cannot be empty"
+            )
+        # Basic validation: ISO 639-1 codes are 2 letters, ISO 639-2 can be 3 letters
+        # We'll accept any non-empty string but warn if it doesn't look like an ISO code
+        value_clean = value.strip().lower()
+        if len(value_clean) < 2 or len(value_clean) > 3:
+            logger.warning(
+                f"Language code '{value}' doesn't look like a standard ISO 639 code "
+                f"(expected 2-3 characters). Continuing anyway."
+            )
 
 
 def convert_to_task_result(

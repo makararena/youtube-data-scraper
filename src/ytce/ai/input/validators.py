@@ -79,6 +79,10 @@ def _validate_single_task(task: Dict, seen_ids: Set[str]) -> None:
             )
         _forbid(task_id, labels=labels, max_labels=max_labels, scale=scale)
 
+    elif task_type == TaskType.LANGUAGE_DETECTION:
+        # Language detection doesn't require any additional fields
+        _forbid(task_id, labels=labels, max_labels=max_labels, scale=scale, target_language=target_language)
+
 
 def _forbid(task_id: str, **fields):
     for name, value in fields.items():
