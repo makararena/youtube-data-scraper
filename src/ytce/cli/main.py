@@ -227,6 +227,11 @@ Quick Examples:
   # Utilities
   ytce open @realmadrid                       # Open output folder
 
+Output Formats:
+  Videos: JSON (default), CSV, Parquet
+  Comments: JSONL (default), CSV, Parquet
+  Use --format flag to specify format (e.g., --format csv, --format parquet)
+
 For more info: https://github.com/makararena/youtube-data-scraper
         """,
         formatter_class=GroupedHelpFormatter,

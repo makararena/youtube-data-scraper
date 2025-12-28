@@ -11,6 +11,7 @@ Download YouTube videos metadata and comments without using the YouTube API.
 ## TL;DR
 
 ```bash
+pip install -r requirements.txt
 pip install -e .
 ytce channel @realmadrid
 ```
@@ -22,6 +23,7 @@ That's it! Your data will be in `data/realmadrid/`
 ### 1. Install
 
 ```bash
+pip install -r requirements.txt
 pip install -e .
 ```
 
@@ -627,7 +629,11 @@ YouTube may have changed their page structure. Debug HTML is saved to `/tmp/yout
 Check if comments are disabled for the video. The scraper will automatically skip these.
 
 ### Module not found
-Make sure you installed the package: `pip install -e .`
+Make sure you installed the package:
+```bash
+pip install -r requirements.txt
+pip install -e .
+```
 
 ## Project Structure
 
