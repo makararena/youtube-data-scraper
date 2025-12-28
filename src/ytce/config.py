@@ -21,6 +21,7 @@ DEFAULT_CONFIG = {
 
 CONFIG_FILE = "ytce.yaml"
 CHANNELS_FILE = "channels.txt"
+VIDEOS_FILE = "videos.txt"
 
 CHANNELS_TEMPLATE = """# List of YouTube channels to scrape
 # One channel per line
@@ -36,6 +37,21 @@ CHANNELS_TEMPLATE = """# List of YouTube channels to scrape
 
 @skryp
 @errornil
+"""
+
+VIDEOS_TEMPLATE = """# List of YouTube videos to scrape
+# One video per line
+# Supported formats:
+#   - Video ID (11 characters, e.g., dQw4w9WgXcQ)
+#   - https://www.youtube.com/watch?v=VIDEO_ID
+#   - https://youtu.be/VIDEO_ID
+#   - https://www.youtube.com/watch?v=VIDEO_ID&t=123s
+#
+# Lines starting with # are comments and will be ignored
+# Empty lines are ignored
+
+dQw4w9WgXcQ
+jNQXAC9IVRw
 """
 
 
@@ -160,6 +176,14 @@ def init_project(output_dir: Optional[str] = None) -> None:
         print(f"✔ Channels file: ./{CHANNELS_FILE}")
     else:
         print(f"⚠️  Channels file already exists: ./{CHANNELS_FILE}")
+    
+    # Create videos.txt template (if it doesn't exist)
+    if not os.path.exists(VIDEOS_FILE):
+        with open(VIDEOS_FILE, "w", encoding="utf-8") as f:
+            f.write(VIDEOS_TEMPLATE)
+        print(f"✔ Videos file: ./{VIDEOS_FILE}")
+    else:
+        print(f"⚠️  Videos file already exists: ./{VIDEOS_FILE}")
     
     # Success messages
     print("✔ Project initialized")

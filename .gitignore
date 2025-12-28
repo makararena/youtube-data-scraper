@@ -31,6 +31,12 @@ questions.yaml
 data/*
 !data/.gitkeep
 
+
+# Templates
+channels.txt
+videos.txt
+questions.yaml
+
 # Logs
 *.log
 

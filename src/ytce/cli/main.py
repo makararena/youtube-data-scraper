@@ -12,11 +12,85 @@ from ytce.__version__ import __version__
 from ytce.config import get_global_config_path, load_config, save_global_config
 from ytce.errors import EXIT_SUCCESS, handle_error
 from ytce.pipelines.batch import run_batch
+from ytce.pipelines.batch_videos import run_batch_videos
 from ytce.pipelines.channel_videos import run as run_channel_videos
 from ytce.pipelines.scraper import ScrapeConfig, scrape_channel
 from ytce.pipelines.video_comments import run as run_video_comments
 from ytce.storage.paths import channel_output_dir, channel_videos_path, channel_videos_path_with_format, video_comments_path
 from ytce.utils.progress import print_error, print_success
+
+
+class GroupedHelpFormatter(argparse.RawDescriptionHelpFormatter):
+    """Custom formatter that groups commands by category."""
+    
+    def _format_action(self, action):
+        # Group subcommands by category
+        if isinstance(action, argparse._SubParsersAction):
+            # Define command groups with their help text
+            groups = {
+                "AI Analysis": [
+                    ("init", "Generate example questions.yaml for AI analysis"),
+                    ("analyze", "Run AI analysis defined in questions.yaml"),
+                    ("setup", "Configure OpenAI API key and model (saved globally)"),
+                    ("key", "Set or change OpenAI API key (saved globally)"),
+                    ("model", "Choose default OpenAI model (saved globally)"),
+                ],
+                "Data Scraping": [
+                    ("channel", "Download channel videos and comments"),
+                    ("video", "Download single video metadata"),
+                    ("comments", "Download comments for a video"),
+                    ("batch", "Scrape multiple channels from a file"),
+                    ("batch-videos", "Scrape multiple videos from a file"),
+                ],
+                "Utilities": [
+                    ("open", "Open output directory in file manager"),
+                ],
+            }
+            
+            # Build formatted help text
+            parts = []
+            parts.append("Commands:\n")
+            
+            for group_name, commands in groups.items():
+                parts.append(f"  {group_name}:")
+                # Filter to only include commands that exist in action.choices
+                available_commands = [(cmd, help_txt) for cmd, help_txt in commands if cmd in action.choices]
+                if not available_commands:
+                    continue
+                
+                # Calculate max command length for alignment
+                max_cmd_len = max(len(cmd) for cmd, _ in available_commands)
+                
+                for cmd_name, help_text in available_commands:
+                    # Format: command_name  help_text (wrapped)
+                    padding = " " * (max_cmd_len - len(cmd_name) + 2)
+                    # Wrap help text
+                    help_lines = self._split_lines(help_text, 80 - len(cmd_name) - len(padding) - 2)
+                    parts.append(f"    {cmd_name}{padding}{help_lines[0]}")
+                    for line in help_lines[1:]:
+                        parts.append(f"    {' ' * (max_cmd_len + 2)}{line}")
+                parts.append("")  # Empty line between groups
+            
+            return "\n".join(parts)
+        
+        return super()._format_action(action)
+    
+    def format_help(self):
+        # Get the default help text
+        help_text = super().format_help()
+        # Remove the "positional arguments:" line
+        lines = help_text.split("\n")
+        filtered_lines = []
+        skip_next_empty = False
+        for i, line in enumerate(lines):
+            if line.strip() == "positional arguments:":
+                skip_next_empty = True
+                continue
+            if skip_next_empty and line.strip() == "":
+                skip_next_empty = False
+                continue
+            filtered_lines.append(line)
+        return "\n".join(filtered_lines)
 
 
 # Template for questions.yaml
@@ -36,19 +110,24 @@ custom_prompt: ""
 
 # Tasks section: what analysis to run on each comment
 tasks:
-  # Example 1: Multi-class classification
+  # Example 1: Language detection
+  - id: language
+    type: language_detection
+    question: "What is the primary language of this comment? Return the ISO 639-1 or ISO 639-2 language code (e.g., 'en' for English, 'ru' for Russian, 'es' for Spanish)."
+
+  # Example 2: Multi-class classification
   - id: sentiment
     type: multi_class
     question: "What is the sentiment of this comment?"
     labels: ["positive", "neutral", "negative"]
 
-  # Example 2: Binary classification
+  # Example 3: Binary classification
   - id: spam
     type: binary_classification
     question: "Is this comment spam or self-promotion?"
     labels: ["yes", "no"]
 
-  # Example 3: Multi-label classification
+  # Example 4: Multi-label classification
   - id: topics
     type: multi_label
     question: "What topics are mentioned in this comment?"
@@ -60,7 +139,7 @@ tasks:
       - usability
     max_labels: 2
 
-  # Example 4: Scoring task
+  # Example 5: Scoring task
   - id: toxicity
     type: scoring
     question: "How toxic or aggressive is this comment?"
@@ -70,14 +149,16 @@ tasks:
 
 def init_questions_yaml() -> int:
     """
-    Generate an example questions.yaml file in the current working directory.
+    Generate an example questions.yaml file and project files (channels.txt, videos.txt) in the current working directory.
     
     Returns:
         Exit code (0 for success, non-zero for error)
     """
+    from ytce.config import CHANNELS_FILE, CHANNELS_TEMPLATE, VIDEOS_FILE, VIDEOS_TEMPLATE
+    
     target_path = os.path.join(os.getcwd(), "questions.yaml")
     
-    # Check if file already exists
+    # Check if questions.yaml already exists
     if os.path.exists(target_path):
         print_error("questions.yaml already exists in current directory")
         print_error(f"Location: {target_path}")
@@ -91,6 +172,25 @@ def init_questions_yaml() -> int:
             f.write(QUESTIONS_YAML_TEMPLATE.lstrip())
         
         print_success(f"Generated: {target_path}")
+        
+        # Create channels.txt if it doesn't exist
+        channels_path = os.path.join(os.getcwd(), CHANNELS_FILE)
+        if not os.path.exists(channels_path):
+            with open(channels_path, "w", encoding="utf-8") as f:
+                f.write(CHANNELS_TEMPLATE)
+            print_success(f"Generated: {channels_path}")
+        else:
+            print(f"⚠️  {CHANNELS_FILE} already exists, skipping")
+        
+        # Create videos.txt if it doesn't exist
+        videos_path = os.path.join(os.getcwd(), VIDEOS_FILE)
+        if not os.path.exists(videos_path):
+            with open(videos_path, "w", encoding="utf-8") as f:
+                f.write(VIDEOS_TEMPLATE)
+            print_success(f"Generated: {videos_path}")
+        else:
+            print(f"⚠️  {VIDEOS_FILE} already exists, skipping")
+        
         print()
         print("Next steps:")
         print("  1. Edit questions.yaml to define your analysis tasks")
@@ -101,7 +201,7 @@ def init_questions_yaml() -> int:
         return EXIT_SUCCESS
         
     except Exception as e:
-        print_error(f"Failed to create questions.yaml: {e}")
+        print_error(f"Failed to create files: {e}")
         from ytce.errors import EXIT_INTERNAL_ERROR
         return EXIT_INTERNAL_ERROR
 
@@ -111,16 +211,25 @@ def build_parser() -> argparse.ArgumentParser:
         prog="ytce",
         description="YouTube Comment Explorer - Download videos and comments without API",
         epilog="""
-Examples:
-  ytce init                          # Generate questions.yaml for AI analysis
-  ytce channel @realmadrid           # Download channel videos + comments
-  ytce channel @skryp --limit 5      # Download first 5 videos only
-  ytce comments dQw4w9WgXcQ          # Download comments for one video
-  ytce open @realmadrid              # Open output folder
+Quick Examples:
+  # Data Scraping
+  ytce channel @realmadrid                    # Download channel videos + comments
+  ytce channel @skryp --limit 5               # First 5 videos only
+  ytce comments dQw4w9WgXcQ                  # Download comments for one video
+  ytce batch channels.txt                    # Scrape multiple channels
+  ytce batch-videos videos.txt                # Scrape multiple videos
+  
+  # AI Analysis
+  ytce init                                   # Generate questions.yaml template
+  ytce analyze                                # Run AI analysis on comments
+  ytce setup                                  # Configure OpenAI API key & model
+  
+  # Utilities
+  ytce open @realmadrid                       # Open output folder
 
 For more info: https://github.com/makararena/youtube-data-scraper
         """,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=GroupedHelpFormatter,
     )
     parser.add_argument(
         "-v", "--version",
@@ -414,6 +523,32 @@ Examples:
     p_batch.add_argument("--sleep-between", type=int, default=2, help="Seconds to sleep between channels (default: 2)")
     p_batch.add_argument("--debug", action="store_true", help="Enable debug output")
 
+    # ytce batch-videos
+    p_batch_videos = sub.add_parser(
+        "batch-videos",
+        help="Scrape multiple videos from a file",
+        usage="ytce batch-videos <videos_file> [options]",
+        description="Scrape comments for multiple videos listed in a file. Uses same options as 'ytce comments'.",
+        epilog="""
+Examples:
+  ytce batch-videos videos.txt                    # Scrape all videos
+  ytce batch-videos videos.txt --format parquet   # Export to Parquet
+  ytce batch-videos videos.txt --limit 500        # Max 500 comments per video
+  ytce batch-videos videos.txt --fail-fast        # Stop on first error
+  ytce batch-videos videos.txt --dry-run          # Preview without downloading
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_batch_videos.add_argument("videos_file", metavar="<videos_file>", help="Path to file containing video list")
+    p_batch_videos.add_argument("--limit", type=int, default=None, help="Limit comments per video")
+    p_batch_videos.add_argument("--sort", choices=["recent", "popular"], default=None, help="Comment sort order (default: from config or 'recent')")
+    p_batch_videos.add_argument("--language", default=None, help="Language code (default: from config or 'en')")
+    p_batch_videos.add_argument("--format", choices=["jsonl", "csv", "parquet"], default="jsonl", help="Output format (default: jsonl)")
+    p_batch_videos.add_argument("--fail-fast", action="store_true", help="Stop on first error")
+    p_batch_videos.add_argument("--dry-run", action="store_true", help="Preview what will be downloaded without actually downloading")
+    p_batch_videos.add_argument("--sleep-between", type=int, default=1, help="Seconds to sleep between videos (default: 1)")
+    p_batch_videos.add_argument("--debug", action="store_true", help="Enable debug output")
+
     return parser
 
 
@@ -632,8 +767,15 @@ def _confirm_proceed() -> bool:
 
 def open_directory(path: str) -> None:
     """Open a directory in the system file manager."""
+    # Use the global os import - ensure it's available
+    import os
+    
     if not os.path.exists(path):
         print_error(f"Directory not found: {path}")
+        return
+    
+    if not os.path.isdir(path):
+        print_error(f"Path is not a directory: {path}")
         return
     
     system = platform.system()
@@ -948,18 +1090,28 @@ def main(argv: Optional[list[str]] = None) -> int:
             # Try to determine if it's a channel or video
             identifier = args.identifier
             # Try channel first
-            channel_dir = channel_output_dir(identifier, base_dir=base_dir)
-            if os.path.exists(channel_dir):
-                open_directory(channel_dir)
-                return EXIT_SUCCESS
+            try:
+                channel_dir = channel_output_dir(identifier, base_dir=base_dir)
+                if os.path.exists(channel_dir) and os.path.isdir(channel_dir):
+                    open_directory(channel_dir)
+                    return EXIT_SUCCESS
+            except Exception:
+                pass
+            
             # Try video
-            video_dir = os.path.join(base_dir, identifier)
-            if os.path.exists(video_dir):
-                open_directory(video_dir)
-                return EXIT_SUCCESS
-            # Not found
+            try:
+                video_dir = os.path.join(base_dir, identifier)
+                if os.path.exists(video_dir) and os.path.isdir(video_dir):
+                    open_directory(video_dir)
+                    return EXIT_SUCCESS
+            except Exception:
+                pass
+            
+            # Not found - provide helpful error message
             print_error(f"No data found for: {identifier}")
             print_error(f"Searched in: {base_dir}")
+            print_error("Make sure you've downloaded data for this channel/video first.")
+            print_error("Example: ytce channel @realmadrid")
             from ytce.errors import EXIT_USER_ERROR
             return EXIT_USER_ERROR
 
@@ -1079,6 +1231,30 @@ def main(argv: Optional[list[str]] = None) -> int:
                 sort=sort,
                 language=language,
                 format=comment_format,
+                debug=debug,
+                fail_fast=args.fail_fast,
+                dry_run=args.dry_run,
+                sleep_between=args.sleep_between,
+            )
+            return EXIT_SUCCESS
+
+        # ytce batch-videos
+        if args.cmd == "batch-videos":
+            # Merge config with args
+            sort = args.sort or config.get("comment_sort", "recent")
+            language = args.language or config.get("language", "en")
+            format_arg = getattr(args, "format", "jsonl")
+            
+            # Determine base directory
+            batch_base_dir = base_dir
+            
+            run_batch_videos(
+                videos_file=args.videos_file,
+                base_dir=batch_base_dir,
+                limit=args.limit,
+                sort=sort,
+                language=language,
+                format=format_arg,
                 debug=debug,
                 fail_fast=args.fail_fast,
                 dry_run=args.dry_run,
